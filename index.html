@@ -39,20 +39,21 @@
             { id: 2, q: "What is the result of applying the quadratic formula: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$" }
         ];
 
-        // REBUILT MATHEMATICS RENDERER COMPONENT
+                // REBUILT MATHEMATICS RENDERER COMPONENT
         const MathText = ({ text }) => {
             const containerRef = useRef(null);
 
             useEffect(() => {
                 if (!containerRef.current) return;
 
-                // Tiny timeout forces execution AFTER the browser processes layout updates
                 const timer = setTimeout(() => {
                     if (window.renderMathInElement) {
                         window.renderMathInElement(containerRef.current, {
                             delimiters: [
                                 {left: '$$', right: '$$', display: true},
-                                {left: '$', right: '$', display: false}
+                                {left: '$', right: '$', display: false},
+                                {left: '\\(', right: '\\)', display: false},
+                                {left: '\\[', right: '\\]', display: true}
                             ],
                             throwOnError: false
                         });
@@ -64,6 +65,7 @@
 
             return <span ref={containerRef} className="inline-block w-full">{text}</span>;
         };
+
 
         function App() {
             const [studentName, setStudentName] = useState("");
