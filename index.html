@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Question Sheet Mk 1 (Fixed Math)</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .katex { font-size: 1.1em; }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzg6qf35CIcaHSabBKuv1Qat_ba-IrHAJoRmcK3D0rpN9COxp9s4edb6_tMViM9ClJBkg/exec"; 
+        const PAPER_TITLE = "Final Examination: Manual Mode"; 
+        const ALLOWED_STUDENTS = ["13", "Yoshua", "Jevan", "Student", "Guest"];
+
+        const MOCK_QUESTIONS = [
+            { id: 1, q: "Solve this equation: $$2x + 5 = 15$$" },
+            { id: 2, q: "What is the result of applying the quadratic formula: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$" }
+        ];
+
+        // REBUILT MATHEMATICS RENDERER COMPONENT
+        const MathText = ({ text }) => {
+            const containerRef = useRef(null);
+
+            useEffect(() => {
+                if (!containerRef.current) return;
+
+                // Tiny timeout forces execution AFTER the browser processes layout updates
+                const timer = setTimeout(() => {
+                    if (window.renderMathInElement) {
+                        window.renderMathInElement(containerRef.current, {
+                            delimiters: [
+                                {left: '$$', right: '$$', display: true},
+                                {left: '$', right: '$', display: false}
+                            ],
+                            throwOnError: false
+                        });
+                    }
+                }, 50); 
+
+                return () => clearTimeout(timer);
+            }, [text]);
+
+            return <span ref={containerRef} className="inline-block w-full">{text}</span>;
+        };
+
+        function App() {
+            const [studentName, setStudentName] = useState("");
+            const [step, setStep] = useState('loading'); 
+            const [questions, setQuestions] = useState([]);
+            const [currentIdx, setCurrentIdx] = useState(0);
+            const [accessDenied, setAccessDenied] = useState(false);
+            const [isDemo, setIsDemo] = useState(false);
+
+            useEffect(() => {
+                if (!SCRIPT_URL) {
+                    setStep('error');
+                    return;
+                }
+
+                fetch(SCRIPT_URL)
+                    .then(res => res.json())
+                    .then(data => {
+                        setQuestions(data);
+                        setStep('name');
+                    })
+                    .catch(() => setStep('error'));
+            }, []);
+
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    if (step !== 'view') return;
+                    if (e.key === 'ArrowRight' && currentIdx < questions.length - 1) setCurrentIdx(prev => prev + 1);
+                    if (e.key === 'ArrowLeft' && currentIdx > 0) setCurrentIdx(prev => prev - 1);
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [currentIdx, step, questions.length]);
+
+            const runAnyway = () => {
+                setQuestions(MOCK_QUESTIONS);
+                setIsDemo(true);
+                setStep('name');
+            };
+
+            const startViewing = () => {
+                const trimmedName = studentName.trim().toLowerCase();
+                const isAllowed = ALLOWED_STUDENTS.some(name => name.toLowerCase() === trimmedName);
+                if (!isAllowed) { setAccessDenied(true); return; }
+                setStep('view');
+            };
+
+            if (step === 'loading') return <div className="flex items-center justify-center min-h-screen text-slate-400 font-sans tracking-widest uppercase text-xs">Preparing Paper...</div>;
+            
+            if (step === 'error') return (
+                <div className="flex flex-col items-center justify-center min-h-screen p-6 font-sans">
+                    <div className="bg-white p-8 rounded-[2rem] shadow-xl text-center border-b-8 border-amber-500 max-w-sm relative">
+                        <div className="text-amber-500 text-4xl mb-4">🔌</div>
+                        <h2 className="text-slate-800 font-black uppercase text-lg leading-tight">Connection Required</h2>
+                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed uppercase tracking-widest font-bold">
+                            Could not fetch questions from the server.
+                        </p>
+                        
+                        <button 
+                            onClick={runAnyway}
+                            className="absolute -bottom-16 right-0 text-[10px] font-black text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-[0.2em] flex items-center gap-2"
+                        >
+                            Run Anyway (Demo Mode) 
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            );
+
+            if (step === 'name') {
+                return (
+                    <div className="flex items-center justify-center min-h-screen p-6 bg-slate-100 font-sans">
+                        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl max-w-md w-full text-center fade-in">
+                            {isDemo && <div className="bg-amber-100 text-amber-700 text-[9px] font-bold py-1 px-3 rounded-full inline-block mb-4 uppercase tracking-widest">Demo Mode</div>}
+                            <div className="text-blue-600 text-sm font-bold tracking-[0.3em] mb-2 uppercase">QS Mk 1</div>
+                            <h1 className="text-2xl font-black text-slate-800 mb-8 leading-tight">{PAPER_TITLE}</h1>
+                            <input 
+                                type="text" 
+                                value={studentName}
+                                onChange={(e) => {setStudentName(e.target.value); setAccessDenied(false);}}
+                                className={`w-full p-4 bg-slate-50 border-2 rounded-2xl mb-2 text-center text-xl outline-none transition-all ${accessDenied ? 'border-red-400' : 'border-transparent focus:border-blue-500'}`}
+                                placeholder="Student Name"
+                            />
+                            {accessDenied && <p className="text-red-500 text-sm mb-4">Access Denied.</p>}
+                            <button onClick={startViewing} disabled={studentName.length < 2} className="w-full mt-4 bg-slate-800 text-white font-bold py-5 rounded-2xl shadow-lg active:scale-95 disabled:opacity-50">Open Question Paper</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            const currentQuestion = questions[currentIdx];
+
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-white md:bg-slate-50 font-sans">
+                    <div className="max-w-4xl w-full flex flex-col gap-6">
+                        
+                        <div className="flex justify-between items-center px-4">
+                            <div className="flex items-center gap-4">
+                                <div className="bg-slate-800 text-white w-10 h-10 rounded-xl flex items-center justify-center font-bold">
+                                    {currentIdx + 1}
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Question</p>
+                                    <p className="text-slate-800 font-bold text-sm uppercase">{PAPER_TITLE}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white md:shadow-2xl md:rounded-[3rem] p-8 md:p-16 min-h-[60vh] flex flex-col justify-center relative overflow-hidden transition-all duration-500 slide-up">
+                            <div className="absolute top-10 right-10 opacity-[0.03] select-none pointer-events-none transform rotate-12">
+                                <h2 className="text-9xl font-black">EXAM</h2>
+                            </div>
+
+                            {currentQuestion?.imageUrl && (
+                                <div className="mb-10 flex justify-center fade-in">
+                                    <img src={currentQuestion.imageUrl} alt="Question diagram" className="max-h-[350px] w-auto rounded-2xl" />
+                                </div>
+                            )}
+
+                            <div className="text-center fade-in">
+                                <h2 className="text-2xl md:text-4xl font-bold text-slate-800 leading-[1.4]">
+                                    <MathText text={currentQuestion?.q || ""} />
+                                </h2>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center px-4 mb-10">
+                            <button 
+                                onClick={() => currentIdx > 0 && setCurrentIdx(c => c - 1)}
+                                disabled={currentIdx === 0}
+                                className={`flex items-center gap-2 font-bold transition-all px-6 py-3 rounded-2xl ${currentIdx === 0 ? 'opacity-20' : 'text-slate-400 hover:bg-slate-100'}`}
+                            >
+                                PREVIOUS
+                            </button>
+
+                            <div className="flex gap-1.5">
+                                <span className="text-slate-400 font-bold text-sm tracking-widest uppercase">Page {currentIdx + 1} / {questions.length}</span>
+                            </div>
+
+                            <button 
+                                onClick={() => currentIdx < questions.length - 1 && setCurrentIdx(c => c + 1)}
+                                disabled={currentIdx === questions.length - 1}
+                                className={`flex items-center gap-2 font-bold transition-all px-6 py-3 rounded-2xl ${currentIdx === questions.length - 1 ? 'opacity-20' : 'text-slate-800 hover:bg-slate-100'}`}
+                            >
+                                NEXT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
